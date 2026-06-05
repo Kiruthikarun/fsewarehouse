@@ -15,6 +15,10 @@ RUN npm ci
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# `public/` is untracked/empty in the repo (git can't store an empty dir), so a
+# git-checkout build context — as the CD trigger uses — may omit it entirely.
+# Guarantee it exists so the runner stage's `COPY /app/public` can never fail.
+RUN mkdir -p /app/public
 RUN npx prisma generate
 # Dummy DATABASE_URL so `next build` (which collects page data) doesn't fail at build time.
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
