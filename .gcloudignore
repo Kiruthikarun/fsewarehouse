@@ -1,0 +1,15 @@
+.git
+node_modules
+.next
+out
+build
+.env
+.env*.local
+.env.production
+secrets
+*service-account*.json
+gcp-key*.json
+*.tsbuildinfo
+npm-debug.log*
+.DS_Store
+*.pdf

@@ -1,0 +1,26 @@
+# ─── Cloud Run Job image: PG → BigQuery snapshot sync ────────────────────────
+# Runs scripts/sync-to-bigquery.ts on a schedule (Cloud Scheduler → this job).
+# Unlike the web image, this one keeps devDependencies (tsx) so it can run the
+# TypeScript sync script directly.
+
+FROM node:20-slim
+# openssl is required by Prisma's query engine at runtime.
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+
+# Install ALL deps (including devDeps like tsx) — needed to run the .ts script.
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+# Generate the Prisma client (the script reads Postgres via Prisma).
+COPY prisma ./prisma
+RUN npx prisma generate
+
+# The sync script + its BigQuery schema helper, plus tsconfig for tsx.
+COPY scripts ./scripts
+COPY tsconfig.json ./
+
+# DATABASE_URL, GCP_PROJECT_ID, BIGQUERY_DATASET, BIGQUERY_LOCATION are supplied
+# at runtime by the Cloud Run Job config (secret + env vars). Auth to BigQuery is
+# via ADC (the job's service account).
+CMD ["npx", "tsx", "scripts/sync-to-bigquery.ts"]

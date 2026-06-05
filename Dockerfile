@@ -19,6 +19,11 @@ RUN npx prisma generate
 # Dummy DATABASE_URL so `next build` (which collects page data) doesn't fail at build time.
 ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
 ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* vars are inlined at build time, so the WorkOS redirect URI must be
+# present here (the Edge middleware reads it). Overridable via --build-arg; defaults
+# to the deployed Cloud Run URL (stable: <service>-<projectnumber>.<region>.run.app).
+ARG NEXT_PUBLIC_WORKOS_REDIRECT_URI="https://warehouse-505424789443.us-central1.run.app/api/auth/callback"
+ENV NEXT_PUBLIC_WORKOS_REDIRECT_URI=${NEXT_PUBLIC_WORKOS_REDIRECT_URI}
 RUN npm run build
 
 # ─── runner ───

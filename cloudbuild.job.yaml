@@ -1,0 +1,14 @@
+# Builds the BigQuery-sync job image from Dockerfile.job and pushes it to
+# Artifact Registry. Run with:
+#   gcloud builds submit --config cloudbuild.job.yaml --project=fsewarehouse-498507 .
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - Dockerfile.job
+      - -t
+      - us-central1-docker.pkg.dev/fsewarehouse-498507/cloud-run-source-deploy/bq-sync:latest
+      - .
+images:
+  - us-central1-docker.pkg.dev/fsewarehouse-498507/cloud-run-source-deploy/bq-sync:latest
