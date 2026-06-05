@@ -21,9 +21,9 @@ import { PANEL, SIGNAL } from "@/theme/theme";
 const LINE = "rgba(232,237,246,0.10)";
 const DEEP = "#0b0f1a";
 const shimmer = { bgcolor: "rgba(255,255,255,0.07)" } as const;
-// Divider for skeleton elements that sit on the off-white app canvas (the home
-// greeting band, the settings tab strip) rather than inside a dark panel.
-const CANVAS_LINE = "rgba(15,23,42,0.10)";
+// Divider for skeleton elements that sit directly on the dark app canvas (the
+// home greeting band, the settings tab strip) rather than inside a lit panel.
+const CANVAS_LINE = "rgba(232,237,246,0.10)";
 
 const panelGlow = {
   content: '""',

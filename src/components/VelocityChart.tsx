@@ -29,14 +29,14 @@ export function VelocityChart({
     return (
       <div
         className="flex h-72 items-center justify-center text-sm"
-        style={{ color: dark ? "rgba(232,237,246,0.5)" : "#94a3b8" }}
+        style={{ color: dark ? "rgba(232,237,246,0.66)" : "#94a3b8" }}
       >
         No movement data in the last 90 days.
       </div>
     );
   }
 
-  const axisColor = dark ? "rgba(232,237,246,0.55)" : "#64748b";
+  const axisColor = dark ? "rgba(232,237,246,0.74)" : "#64748b";
   const gridColor = dark ? "rgba(232,237,246,0.10)" : "#e2e8f0";
 
   return (

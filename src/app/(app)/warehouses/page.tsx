@@ -4,6 +4,11 @@ import { can } from "@/lib/rbac";
 import { warehouses } from "@/lib/repositories";
 import { WarehousesClient } from "./WarehousesClient";
 
+export const metadata = {
+  title: "Warehouses",
+  description: "Locations and storage capacity across your organisation.",
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function WarehousesPage() {

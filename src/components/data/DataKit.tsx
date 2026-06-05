@@ -33,8 +33,8 @@ export const screen = {
   panel: PANEL, // #11182b — the lit instrument surface
   deep: "#0b0f1a", // header band / inset wells
   text: "#e8edf6", // primary readout
-  dim: "rgba(232,237,246,0.62)", // labels, secondary cells
-  faint: "rgba(232,237,246,0.40)", // hints, placeholders
+  dim: "rgba(232,237,246,0.74)", // labels, secondary cells
+  faint: "rgba(232,237,246,0.52)", // hints, placeholders
   line: "rgba(232,237,246,0.10)", // dividers / borders
   lineSoft: "rgba(232,237,246,0.06)", // inset wells
   hover: "rgba(255,255,255,0.04)", // row hover wash

@@ -23,7 +23,7 @@ import type {
 // every chart reads as the same dark instrument panel.
 const INBOUND = "#38bdf8";
 const OUTBOUND = "#ff6a1a";
-const AXIS = "rgba(232,237,246,0.55)";
+const AXIS = "rgba(232,237,246,0.74)";
 const GRID = "rgba(232,237,246,0.12)";
 const CURSOR = "rgba(255,255,255,0.06)";
 
@@ -53,7 +53,7 @@ function Empty({ label }: { label: string }) {
   return (
     <div
       className="flex h-[260px] items-center justify-center text-sm"
-      style={{ color: "rgba(232,237,246,0.5)" }}
+      style={{ color: "rgba(232,237,246,0.66)" }}
     >
       {label}
     </div>
@@ -242,7 +242,7 @@ export function CapacityChart({ data }: { data: CapacityRow[] }) {
             dataKey="pct"
             position="right"
             formatter={(v: number) => `${v}%`}
-            fill="rgba(232,237,246,0.7)"
+            fill="rgba(232,237,246,0.85)"
             fontSize={11}
           />
         </Bar>
@@ -387,7 +387,7 @@ export function StatusDonut({ data }: { data: StatusBreakdown }) {
           </span>
           <span
             className="mt-0.5 text-[10px] uppercase tracking-wider"
-            style={{ color: "rgba(232,237,246,0.5)" }}
+            style={{ color: "rgba(232,237,246,0.66)" }}
           >
             SKUs
           </span>
@@ -401,7 +401,7 @@ export function StatusDonut({ data }: { data: StatusBreakdown }) {
               className="h-2.5 w-2.5 shrink-0 rounded-sm"
               style={{ background: STATUS_META[k].color }}
             />
-            <span style={{ color: "rgba(232,237,246,0.7)" }}>
+            <span style={{ color: "rgba(232,237,246,0.85)" }}>
               {STATUS_META[k].label}
             </span>
             <span

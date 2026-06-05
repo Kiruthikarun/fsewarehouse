@@ -14,6 +14,12 @@ import type { SvgIconComponent } from "@mui/icons-material";
 
 export const dynamic = "force-dynamic";
 
+export const metadata = {
+  title: "Overview",
+  description:
+    "Your warehouse operations at a glance — locations, SKUs and recent stock movement.",
+};
+
 const MONO = "var(--font-plex-mono), ui-monospace, monospace";
 
 const ROLE_LABEL: Record<string, string> = {
@@ -39,13 +45,6 @@ export default async function HomePage() {
       },
     }),
   ]);
-
-  const today = new Date().toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
 
   const stats: {
     label: string;
@@ -108,7 +107,7 @@ export default async function HomePage() {
   return (
     <div className="space-y-10">
       {/* ---- Page header band ---- */}
-      <header className="flex flex-col gap-5 border-b border-slate-200 pb-7 sm:flex-row sm:items-end sm:justify-between">
+      <header className="flex flex-col gap-5 border-b border-white/10 pb-7 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex items-center gap-2.5">
             <span className="h-4 w-1 rounded-full bg-[#ff6a1a]" />
@@ -119,34 +118,20 @@ export default async function HomePage() {
               Operations Overview
             </span>
           </div>
-          <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">
+          <h1 className="mt-3 text-3xl font-bold tracking-tight text-white">
             Welcome back, {user.name.split(" ")[0]}
           </h1>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-2.5 py-1 text-xs font-medium text-white">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-white/[0.06] px-2.5 py-1 text-xs font-medium text-slate-200 ring-1 ring-inset ring-white/10">
               {user.organisationName}
             </span>
-            <span className="inline-flex items-center rounded-md border border-[#ff6a1a]/25 bg-[#ff6a1a]/10 px-2.5 py-1 text-xs font-semibold text-[#c2410c]">
+            <span className="inline-flex items-center rounded-md border border-[#ff6a1a]/30 bg-[#ff6a1a]/10 px-2.5 py-1 text-xs font-semibold text-[#ff6a1a]">
               {ROLE_LABEL[user.role] ?? user.role}
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-right">
-            <div
-              className="text-[10px] uppercase tracking-[0.16em] text-slate-400"
-              style={{ fontFamily: MONO }}
-            >
-              Today
-            </div>
-            <div
-              className="text-sm font-medium text-slate-700"
-              style={{ fontFamily: MONO }}
-            >
-              {today}
-            </div>
-          </div>
           {can(user, "movement:create") && (
             <Link
               href="/movements"
@@ -228,7 +213,7 @@ function Stat({
       <span className="absolute inset-x-0 top-0 h-0.5 scale-x-0 bg-[#ff6a1a] transition-transform duration-300 group-hover:scale-x-100" />
       <div className="flex items-center justify-between">
         <span
-          className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500"
+          className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400"
           style={{ fontFamily: MONO }}
         >
           {label}
@@ -243,7 +228,7 @@ function Stat({
       >
         {value.toLocaleString()}
       </div>
-      <div className="mt-1 text-xs text-slate-500">{caption}</div>
+      <div className="mt-1 text-xs text-slate-400">{caption}</div>
     </div>
   );
 }

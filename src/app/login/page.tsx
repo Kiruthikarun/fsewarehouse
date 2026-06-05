@@ -3,6 +3,11 @@ import { getCurrentUser, getWorkosIdentityEmail } from "@/lib/current-user";
 import { landingPathFor } from "@/lib/rbac";
 import { prisma } from "@/lib/prisma";
 
+export const metadata = {
+  title: "Sign in",
+  description: "Sign in to the FSE Warehouse operations platform.",
+};
+
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: "Admin",
   WAREHOUSE_MANAGER: "Warehouse Manager",

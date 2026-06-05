@@ -4,6 +4,11 @@ import { can } from "@/lib/rbac";
 import { inventory, warehouses } from "@/lib/repositories";
 import { InventoryClient } from "./InventoryClient";
 
+export const metadata = {
+  title: "Inventory",
+  description: "SKUs, quantities and where each item is stored.",
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function InventoryPage() {

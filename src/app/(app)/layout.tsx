@@ -17,6 +17,16 @@ export default async function AppLayout({
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
+  // Compact "today" for the slim breadcrumb header — server-computed so the
+  // client header renders it without a hydration mismatch. Short weekday/month
+  // keep it inside the 60px bar (e.g. "Fri, 6 Jun 2026").
+  const today = new Date().toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+
   // Nav is filtered by permission for UX only — the pages themselves re-check.
   const nav = [
     { href: "/", label: "Home", show: true },
@@ -32,6 +42,7 @@ export default async function AppLayout({
   return (
     <AppShell
       nav={nav}
+      today={today}
       user={{
         name: user.name,
         email: user.email,

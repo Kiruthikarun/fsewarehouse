@@ -22,14 +22,17 @@ const sans = "var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif";
 export const theme = createTheme({
   cssVariables: true,
   palette: {
-    mode: "light",
+    mode: "dark",
     primary: { main: SIGNAL, contrastText: "#0b0f1a" },
-    background: { default: "#f4f5f7", paper: "#ffffff" },
-    text: { primary: "#0b0f1a", secondary: "#5b6472" },
-    divider: "rgba(11,15,26,0.10)",
-    success: { main: "#1f9d55" },
-    warning: { main: "#c77700" },
-    error: { main: "#d33a2c" },
+    // Ink canvas + lit instrument panels — same surfaces as the sidebar/header.
+    background: { default: INK, paper: PANEL },
+    // Brighter secondary than before (was #5b6472, which merged into the panels)
+    // so labels/secondary cells read clearly on the dark surface.
+    text: { primary: "#e8edf6", secondary: "#aeb8c7" },
+    divider: "rgba(232,237,246,0.12)",
+    success: { main: "#34c97b" },
+    warning: { main: "#e8a13a" },
+    error: { main: "#f0584a" },
   },
   shape: { borderRadius: 14 },
   typography: {
@@ -54,7 +57,7 @@ export const theme = createTheme({
       defaultProps: { elevation: 0 },
       styleOverrides: {
         root: {
-          border: "1px solid rgba(11,15,26,0.08)",
+          border: "1px solid rgba(232,237,246,0.08)",
           borderRadius: 14,
         },
       },

@@ -19,6 +19,7 @@ import WarehouseRoundedIcon from "@mui/icons-material/WarehouseRounded";
 import Inventory2RoundedIcon from "@mui/icons-material/Inventory2Rounded";
 import SwapHorizRoundedIcon from "@mui/icons-material/SwapHorizRounded";
 import SettingsRoundedIcon from "@mui/icons-material/SettingsRounded";
+import CalendarTodayRoundedIcon from "@mui/icons-material/CalendarTodayRounded";
 
 export type NavItem = { href: string; label: string };
 
@@ -54,10 +55,12 @@ const NAV_ICONS: Record<string, SvgIconComponent> = {
 export function AppShell({
   nav,
   user,
+  today,
   children,
 }: {
   nav: NavItem[];
   user: ShellUser;
+  today: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -95,7 +98,7 @@ export function AppShell({
   }, [pathname]);
 
   return (
-    <div className="flex min-h-screen bg-[#f4f5f7]">
+    <div className="flex min-h-screen bg-[#0b0f1a]">
       {/* ---- Persistent sidebar (lg+) ---- */}
       <Sidebar
         nav={nav}
@@ -128,11 +131,16 @@ export function AppShell({
         <AppHeader
           nav={nav}
           user={user}
+          today={today}
           pathname={pathname}
           onOpenMenu={() => setMobileOpen(true)}
         />
         <main className="flex-1 [container-type:inline-size]">
-          <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-10">
+          {/* Fluid working column: fills the working area so content grows with
+              the viewport AND reclaims space when the sidebar collapses (the area
+              widens → this widens with it). Capped only on ultra-wide displays so
+              text-heavy pages keep a readable measure; below that it's full-bleed. */}
+          <div className="mx-auto w-full max-w-[1800px] px-4 py-8 sm:px-6 lg:px-10 2xl:px-12">
             {children}
           </div>
         </main>
@@ -270,7 +278,7 @@ function Sidebar({
               <span className="block truncate text-sm font-semibold text-white">
                 {user.organisationName}
               </span>
-              <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-slate-500">
+              <span className="block font-mono text-[10px] uppercase tracking-[0.12em] text-slate-400">
                 Tenant
               </span>
             </span>
@@ -315,7 +323,7 @@ function Sidebar({
           {collapsed ? (
             <div className="mx-auto mb-2 h-px w-8 bg-white/[0.08]" />
           ) : (
-            <p className="px-3 pb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-600">
+            <p className="px-3 pb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">
               Workspace
             </p>
           )}
@@ -333,7 +341,7 @@ function Sidebar({
                     } ${
                       active
                         ? "bg-gradient-to-r from-[#ff6a1a]/[0.14] to-transparent text-white"
-                        : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-100"
+                        : "text-slate-300 hover:bg-white/[0.04] hover:text-white"
                     }`}
                   >
                     {/* active rail with signal glow */}
@@ -349,7 +357,7 @@ function Sidebar({
                       className={
                         active
                           ? "text-[#ff6a1a]"
-                          : "text-slate-500 transition group-hover:text-slate-300"
+                          : "text-slate-400 transition group-hover:text-slate-200"
                       }
                     />
                     {!collapsed && <span className="truncate">{n.label}</span>}
@@ -413,11 +421,13 @@ function Sidebar({
 function AppHeader({
   nav,
   user,
+  today,
   pathname,
   onOpenMenu,
 }: {
   nav: NavItem[];
   user: ShellUser;
+  today: string;
   pathname: string;
   onOpenMenu: () => void;
 }) {
@@ -446,7 +456,7 @@ function AppHeader({
                   {i > 0 && (
                     <ChevronRightRoundedIcon
                       sx={{ fontSize: 16 }}
-                      className="mx-0.5 shrink-0 text-slate-600"
+                      className="mx-0.5 shrink-0 text-slate-500"
                     />
                   )}
                   {last ? (
@@ -456,7 +466,7 @@ function AppHeader({
                   ) : (
                     <Link
                       href={c.href}
-                      className="truncate text-slate-400 transition hover:text-white"
+                      className="truncate text-slate-300 transition hover:text-white"
                     >
                       {c.label}
                     </Link>
@@ -468,6 +478,14 @@ function AppHeader({
         </nav>
 
         <div className="flex-1" />
+
+        {/* ---- Today readout — telemetry-style date, fitted to the 60px bar ---- */}
+        <div className="hidden items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.03] py-1.5 pl-2 pr-2.5 md:flex">
+          <CalendarTodayRoundedIcon sx={{ fontSize: 14 }} className="text-[#ff6a1a]/85" />
+          <span className="font-mono text-[12px] font-medium tracking-tight text-slate-300">
+            {today}
+          </span>
+        </div>
 
         {/* ---- Identity pill: Name | Role ---- */}
         <div className="flex items-center gap-2.5 rounded-lg border border-white/[0.08] bg-white/[0.04] py-1 pl-1.5 pr-3">

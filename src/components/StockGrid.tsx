@@ -23,7 +23,7 @@ const gridTheme = themeQuartz.withParams({
   backgroundColor: "#11182b",
   foregroundColor: "#e8edf6",
   headerBackgroundColor: "#0b0f1a",
-  headerTextColor: "rgba(232,237,246,0.62)",
+  headerTextColor: "rgba(232,237,246,0.78)",
   borderColor: "rgba(232,237,246,0.10)",
   oddRowBackgroundColor: "rgba(255,255,255,0.018)",
   rowHoverColor: "rgba(255,255,255,0.05)",

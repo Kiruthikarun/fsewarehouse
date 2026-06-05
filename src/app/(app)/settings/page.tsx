@@ -4,6 +4,11 @@ import { can, PERMISSION_GROUPS, ROLES } from "@/lib/rbac";
 import { users, rolePermissions } from "@/lib/repositories";
 import { SettingsClient } from "./SettingsClient";
 
+export const metadata = {
+  title: "Team & Settings",
+  description: "Manage members and edit role-based access to each page.",
+};
+
 export const dynamic = "force-dynamic";
 
 const ROLE_LABEL: Record<string, string> = {

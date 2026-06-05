@@ -53,7 +53,7 @@ export function AnalyticsView({
           // Pull up by the content wrapper's top padding (py-8 = 32px) so the bar
           // sits flush against the breadcrumb header with no grey gap.
           mt: -4,
-          // Break out of the centered max-w-7xl column to the FULL working-area
+          // Break out of the centered content column to the FULL working-area
           // width, exactly like the breadcrumb header — so the two read as one
           // continuous dark header and the bar expands when the sidebar collapses.
           // Measured in container-query units (100cqw = <main> width), which

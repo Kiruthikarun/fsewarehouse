@@ -18,9 +18,46 @@ const plexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+// Absolute base for OG/Twitter image URLs so shared links resolve correctly.
+// Override per-environment with NEXT_PUBLIC_APP_URL; falls back to the Cloud Run URL.
+const APP_URL =
+  process.env.NEXT_PUBLIC_APP_URL ??
+  "https://warehouse-505424789443.us-central1.run.app";
+
+const TAGLINE =
+  "Multi-tenant warehouse management — transactional ops, BigQuery analytics, and permission-based RBAC.";
+
 export const metadata: Metadata = {
-  title: "FSE Warehouse",
-  description: "Multi-tenant warehouse management platform",
+  metadataBase: new URL(APP_URL),
+  // Per-page titles render as "Analytics · FSE Warehouse"; the default is the full lockup.
+  title: {
+    default: "FSE Warehouse — Operations Platform",
+    template: "%s · FSE Warehouse",
+  },
+  description: TAGLINE,
+  applicationName: "FSE Warehouse",
+  keywords: [
+    "warehouse management",
+    "inventory",
+    "stock movements",
+    "multi-tenant",
+    "RBAC",
+    "analytics",
+    "BigQuery",
+  ],
+  // The opengraph-image.tsx / twitter-image.tsx routes auto-populate the images.
+  openGraph: {
+    type: "website",
+    siteName: "FSE Warehouse",
+    title: "FSE Warehouse — Operations Platform",
+    description: TAGLINE,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "FSE Warehouse — Operations Platform",
+    description: TAGLINE,
+  },
 };
 
 export default function RootLayout({

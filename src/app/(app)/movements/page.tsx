@@ -4,6 +4,11 @@ import { can } from "@/lib/rbac";
 import { inventory, movements } from "@/lib/repositories";
 import { MovementsClient } from "./MovementsClient";
 
+export const metadata = {
+  title: "Stock Movements",
+  description: "Record inbound / outbound stock and review recent movement activity.",
+};
+
 export const dynamic = "force-dynamic";
 
 export default async function MovementsPage() {

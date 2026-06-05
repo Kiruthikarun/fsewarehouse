@@ -13,6 +13,12 @@ import {
 import { AnalyticsView } from "@/components/dashboard/DashboardView";
 import { rangeKeyToDays } from "@/lib/analytics-ranges";
 
+export const metadata = {
+  title: "Analytics",
+  description:
+    "BigQuery-backed analytics — stock levels, 90-day movement velocity and inventory anomalies.",
+};
+
 // Analytics is read from BigQuery at request time (with a cached data layer —
 // see getAnalytics). The route's loading.tsx streams a skeleton instantly while
 // the first, uncached query for a given (role, range, warehouse) resolves.
