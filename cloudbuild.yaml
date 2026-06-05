@@ -1,0 +1,120 @@
+# ─── Continuous Deployment pipeline (push to `main` → prod) ───────────────────
+# Triggered by a Cloud Build GitHub trigger on every push to `main`.
+#
+#   build → push → MIGRATE (gated) → deploy
+#
+# Why this order is safe (the assurance):
+#   • Cloud Build steps run sequentially and fail-fast. `migrate` runs BEFORE
+#     `deploy`, so if a migration fails the build aborts and the NEW revision is
+#     never shipped — prod keeps serving the last good revision on the unchanged
+#     schema. There is no half-migrated / half-deployed state.
+#   • `prisma migrate deploy` is forward-only and idempotent: it applies only the
+#     migrations not yet recorded in `_prisma_migrations`, never resets, never
+#     re-runs an applied migration, never autogenerates one. Re-running the
+#     pipeline with nothing pending is a DB no-op.
+#   • Migrations must be additive / backward-compatible (expand-contract) so the
+#     briefly-overlapping OLD revision still works against the new schema during
+#     the traffic switch. See CONTINUOUS_DEPLOYMENT.md.
+#   • Every image is tagged with the immutable commit SHA, so prod always maps to
+#     an exact commit and rollback is `update-traffic` to the prior revision.
+#
+# Run the one-time setup once: scripts/setup-cd.sh
+
+substitutions:
+  _REGION: us-central1
+  _SERVICE: warehouse
+  _REPO: cloud-run-source-deploy
+  _CLOUDSQL_INSTANCE: fsewarehouse-498507:us-central1:warehouse-db
+  _RUNTIME_SA: 505424789443-compute@developer.gserviceaccount.com
+  _REDIRECT_URI: https://warehouse-505424789443.us-central1.run.app/api/auth/callback
+  # Fully-qualified image (without tag). $PROJECT_ID is a built-in substitution.
+  _IMAGE: us-central1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/warehouse
+
+steps:
+  # ── 1. Build the web image (Next.js standalone). Tag with the commit SHA
+  #       (immutable, traceable) and `latest` (convenience). ──
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - Dockerfile
+      - -t
+      - ${_IMAGE}:${SHORT_SHA}
+      - -t
+      - ${_IMAGE}:latest
+      - .
+
+  # ── 2. Push both tags so the image exists before we deploy or migrate. ──
+  - id: push
+    name: gcr.io/cloud-builders/docker
+    args: [push, --all-tags, '${_IMAGE}']
+    waitFor: [build]
+
+  # ── 3. Migrate prod DB (GATED — must succeed before deploy). ──
+  #   Connects to Cloud SQL through the Cloud SQL Auth Proxy (IAM-authenticated,
+  #   no password handling here) and reuses the SAME DATABASE_URL secret the app
+  #   uses — it points at the unix socket the proxy creates at /cloudsql/<conn>.
+  #   `prisma migrate deploy` then applies only pending migrations.
+  - id: migrate
+    name: node:20-slim
+    entrypoint: bash
+    secretEnv: [DATABASE_URL]
+    args:
+      - -c
+      - |
+        set -eu
+        apt-get update -y >/dev/null
+        apt-get install -y --no-install-recommends openssl ca-certificates curl >/dev/null
+        curl -fsSL -o /usr/local/bin/cloud-sql-proxy \
+          https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.1/cloud-sql-proxy.linux.amd64
+        chmod +x /usr/local/bin/cloud-sql-proxy
+        mkdir -p /cloudsql
+        # Proxy authenticates as the build service account (ADC). Runs in the
+        # background; it is torn down with this step's container.
+        cloud-sql-proxy --unix-socket /cloudsql ${_CLOUDSQL_INSTANCE} &
+        for i in $$(seq 1 30); do
+          [ -S "/cloudsql/${_CLOUDSQL_INSTANCE}/.s.PGSQL.5432" ] && break
+          sleep 1
+        done
+        npm ci --no-audit --no-fund
+        npx prisma migrate deploy
+    waitFor: [push]
+
+  # ── 4. Deploy the new immutable revision. This step is the declarative source
+  #       of truth for the service's runtime config (env, secrets, Cloud SQL,
+  #       SA, scaling) — a config change goes through git, not a console click.
+  #       Cloud Run health-gates startup and switches traffic atomically. ──
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_IMAGE}:${SHORT_SHA}
+      - --region=${_REGION}
+      - --platform=managed
+      - --service-account=${_RUNTIME_SA}
+      - --add-cloudsql-instances=${_CLOUDSQL_INSTANCE}
+      - --allow-unauthenticated
+      - --max-instances=3
+      - --cpu-boost
+      - --set-env-vars=AUTH_MODE=workos,GCP_PROJECT_ID=${PROJECT_ID},BIGQUERY_DATASET=warehouse_analytics,BIGQUERY_LOCATION=US,WORKOS_REDIRECT_URI=${_REDIRECT_URI}
+      - --set-secrets=DATABASE_URL=DATABASE_URL:latest,WORKOS_API_KEY=WORKOS_API_KEY:latest,WORKOS_CLIENT_ID=WORKOS_CLIENT_ID:latest,WORKOS_COOKIE_PASSWORD=WORKOS_COOKIE_PASSWORD:latest
+    waitFor: [migrate]
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/${PROJECT_ID}/secrets/DATABASE_URL/versions/latest
+      env: DATABASE_URL
+
+images:
+  - ${_IMAGE}:${SHORT_SHA}
+  - ${_IMAGE}:latest
+
+options:
+  # Required when the trigger runs as a user-managed service account.
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1200s

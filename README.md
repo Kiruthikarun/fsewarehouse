@@ -323,6 +323,15 @@ gcloud run deploy warehouse \
 
 Set the WorkOS redirect URI to `https://<your-cloud-run-url>/api/auth/callback`.
 
+### Continuous Deployment (Phase-2)
+
+After the first manual deploy above, push-to-`main` is automated: a Cloud Build
+trigger runs **build → push → migrate → deploy** on every push. Prisma migrations
+are applied to Cloud SQL as a **gated, fail-fast step before** the new revision
+ships, so a bad migration never reaches prod. Pipeline: [`cloudbuild.yaml`](./cloudbuild.yaml);
+one-time wiring: `./scripts/setup-cd.sh`. Full design + migration-safety guarantees:
+**[CONTINUOUS_DEPLOYMENT.md](./CONTINUOUS_DEPLOYMENT.md)**.
+
 ---
 
 ## Auth modes
