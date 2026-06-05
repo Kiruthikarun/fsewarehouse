@@ -1,0 +1,132 @@
+// Transactional schema — Cloud SQL for PostgreSQL via Prisma.
+// Every tenant-owned row carries organisationId; the data-access layer
+// (src/lib/repositories.ts) refuses to query without it. See README → RBAC.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  WAREHOUSE_MANAGER
+  OPERATOR
+}
+
+enum MovementType {
+  INBOUND
+  OUTBOUND
+}
+
+model Organisation {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  // Links our tenant to a WorkOS organization (null in dev-auth mode).
+  workosOrgId String? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users           User[]
+  warehouses      Warehouse[]
+  items           InventoryItem[]
+  movements       StockMovement[]
+  rolePermissions RolePermission[]
+}
+
+// Per-tenant RBAC policy. The role→permission mapping in src/lib/rbac.ts is the
+// built-in DEFAULT; once an org's Admin saves changes in Settings → Roles &
+// Access, rows here become authoritative for that organisation. Presence of a
+// row = the role is granted that permission. No rows for an org → fall back to
+// the code defaults. Scoped per-organisation so one tenant's policy edits can
+// never affect another's.
+model RolePermission {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  role           Role
+  // A Permission string from src/lib/rbac.ts (e.g. "warehouse:create").
+  permission     String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organisationId, role, permission])
+  @@index([organisationId])
+}
+
+model User {
+  id             String       @id @default(cuid())
+  email          String       @unique
+  name           String
+  role           Role
+  // Links to a WorkOS user (null in dev-auth mode; matched by email instead).
+  workosUserId   String?      @unique
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  movements StockMovement[]
+
+  @@index([organisationId])
+}
+
+model Warehouse {
+  id             String       @id @default(cuid())
+  name           String
+  location       String
+  capacity       Int
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  items     InventoryItem[]
+  movements StockMovement[]
+
+  @@index([organisationId])
+}
+
+model InventoryItem {
+  id             String       @id @default(cuid())
+  sku            String
+  name           String
+  quantity       Int          @default(0)
+  warehouseId    String
+  warehouse      Warehouse    @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  movements StockMovement[]
+
+  // SKU is unique per warehouse, not globally.
+  @@unique([warehouseId, sku])
+  @@index([organisationId])
+}
+
+model StockMovement {
+  id             String        @id @default(cuid())
+  type           MovementType
+  quantity       Int
+  itemId         String
+  item           InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  warehouseId    String
+  warehouse      Warehouse     @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  // The operator who performed the movement.
+  operatorId     String
+  operator       User          @relation(fields: [operatorId], references: [id])
+  organisationId String
+  organisation   Organisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  occurredAt     DateTime      @default(now())
+  createdAt      DateTime      @default(now())
+
+  @@index([organisationId])
+  @@index([itemId])
+  @@index([warehouseId])
+  @@index([occurredAt])
+}
