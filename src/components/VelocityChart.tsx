@@ -14,6 +14,15 @@ import type { VelocityPoint } from "@/lib/bigquery";
 const INBOUND = "#38bdf8";
 const OUTBOUND = "#ff6a1a";
 
+// Compact axis numbers so large daily totals don't get clipped by the Y-axis
+// gutter: 12,480 → "12k", 1,240,000 → "1.2M".
+const compactNum = (v: number) => {
+  const a = Math.abs(v);
+  if (a >= 1_000_000) return `${(v / 1_000_000).toFixed(a >= 10_000_000 ? 0 : 1)}M`;
+  if (a >= 1_000) return `${(v / 1_000).toFixed(a >= 10_000 ? 0 : 1)}k`;
+  return `${v}`;
+};
+
 /**
  * 90-day inbound vs outbound area chart. `dark` tunes axis/grid colours for the
  * inverted control-room panel on the dashboard.
@@ -41,7 +50,7 @@ export function VelocityChart({
 
   return (
     <ResponsiveContainer width="100%" height={288}>
-      <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -16 }}>
+      <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
         <defs>
           <linearGradient id="grad-in" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor={INBOUND} stopOpacity={0.55} />
@@ -60,7 +69,12 @@ export function VelocityChart({
           minTickGap={24}
           stroke={gridColor}
         />
-        <YAxis tick={{ fontSize: 11, fill: axisColor }} stroke={gridColor} />
+        <YAxis
+          tick={{ fontSize: 11, fill: axisColor }}
+          stroke={gridColor}
+          width={44}
+          tickFormatter={compactNum}
+        />
         <Tooltip
           contentStyle={
             dark

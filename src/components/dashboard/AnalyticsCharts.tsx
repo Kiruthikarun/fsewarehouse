@@ -27,6 +27,15 @@ const AXIS = "rgba(232,237,246,0.74)";
 const GRID = "rgba(232,237,246,0.12)";
 const CURSOR = "rgba(255,255,255,0.06)";
 
+// Compact axis numbers so large counts don't get clipped by a narrow Y-axis
+// gutter: 12,480 → "12k", 1,240,000 → "1.2M".
+const compactNum = (v: number) => {
+  const a = Math.abs(v);
+  if (a >= 1_000_000) return `${(v / 1_000_000).toFixed(a >= 10_000_000 ? 0 : 1)}M`;
+  if (a >= 1_000) return `${(v / 1_000).toFixed(a >= 10_000 ? 0 : 1)}k`;
+  return `${v}`;
+};
+
 const STATUS_META: Record<keyof StatusBreakdown, { label: string; color: string }> = {
   FAST: { label: "Fast movers", color: "#1f9d55" },
   OK: { label: "Healthy", color: "#94a3b8" },
@@ -155,15 +164,20 @@ export function WarehouseThroughputChart({ data }: { data: ThroughputRow[] }) {
   if (!data.length) return <Empty label="No movements in this window." />;
   return (
     <ResponsiveContainer width="100%" height={320}>
-      <BarChart data={data} margin={{ top: 8, right: 8, bottom: 56, left: -12 }} barGap={4}>
+      <BarChart data={data} margin={{ top: 20, right: 8, bottom: 8, left: 0 }} barGap={4}>
         <XAxis
           dataKey="warehouse_name"
           tick={<AngledXTick maxChars={22} />}
-          height={64}
+          height={72}
           stroke={GRID}
           interval={0}
         />
-        <YAxis tick={{ fontSize: 11, fill: AXIS }} stroke={GRID} />
+        <YAxis
+          tick={{ fontSize: 11, fill: AXIS }}
+          stroke={GRID}
+          width={44}
+          tickFormatter={compactNum}
+        />
         <Tooltip
           contentStyle={tooltipStyle}
           labelStyle={tooltipLabelStyle}
@@ -371,6 +385,10 @@ export function StatusDonut({ data }: { data: StatusBreakdown }) {
               ))}
             </Pie>
             <Tooltip
+              // The center "total" label is an absolutely-positioned overlay
+              // rendered after the chart, so it paints over the tooltip; lift the
+              // tooltip above it.
+              wrapperStyle={{ zIndex: 50 }}
               contentStyle={tooltipStyle}
               labelStyle={tooltipLabelStyle}
               itemStyle={tooltipItemStyle}

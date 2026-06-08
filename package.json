@@ -14,6 +14,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "db:seed": "tsx --env-file=.env prisma/seed.ts",
     "seed:scale": "tsx --env-file=.env scripts/seed-scale.ts",
+    "seed:prod": "./scripts/seed-prod.sh",
     "verify:data": "tsx --env-file=.env scripts/verify-data.ts",
     "bq:setup": "tsx --env-file=.env scripts/setup-bigquery.ts",
     "bq:sync": "tsx --env-file=.env scripts/sync-to-bigquery.ts",
