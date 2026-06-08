@@ -39,6 +39,8 @@ RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# Custom cache handler (referenced by next.config.ts via path.resolve at runtime).
+COPY --from=builder --chown=nextjs:nodejs /app/cache-handler.js ./cache-handler.js
 # Prisma schema + generated client + migrations needed for `migrate deploy` at release.
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma
