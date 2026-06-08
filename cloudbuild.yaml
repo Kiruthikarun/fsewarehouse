@@ -98,7 +98,15 @@ steps:
       - --service-account=${_RUNTIME_SA}
       - --add-cloudsql-instances=${_CLOUDSQL_INSTANCE}
       - --allow-unauthenticated
-      - --max-instances=3
+      # Pin to ONE always-warm instance. The analytics caches (unstable_cache for
+      # the BigQuery base + live snapshot) are in-memory & per-instance, so a cold
+      # start (min=0) or request fan-out across multiple instances (max>1) means
+      # most requests miss the cache and pay the full ~2s of BigQuery every time.
+      # One warm instance keeps the cache hot so repeat views are sub-second.
+      # For real multi-user scale, raise these and add a SHARED cache handler
+      # (next.config cacheHandler → Memorystore/Redis) so the cache is cross-instance.
+      - --min-instances=1
+      - --max-instances=1
       - --cpu-boost
       - --set-env-vars=AUTH_MODE=workos,GCP_PROJECT_ID=${PROJECT_ID},BIGQUERY_DATASET=warehouse_analytics,BIGQUERY_LOCATION=US,WORKOS_REDIRECT_URI=${_REDIRECT_URI}
       - --set-secrets=DATABASE_URL=DATABASE_URL:latest,WORKOS_API_KEY=WORKOS_API_KEY:latest,WORKOS_CLIENT_ID=WORKOS_CLIENT_ID:latest,WORKOS_COOKIE_PASSWORD=WORKOS_COOKIE_PASSWORD:latest
