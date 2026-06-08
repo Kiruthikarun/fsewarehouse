@@ -42,6 +42,10 @@ import {
   headCellSx,
   screen,
 } from "@/components/data/DataKit";
+import { validateInteger, integerHint } from "@/lib/validation";
+
+// A movement must move at least one unit, so quantity is ≥ 1.
+const QTY_MIN = 1;
 
 // Match the dashboard chart palette: inbound sky-blue, outbound signal-orange.
 const INBOUND = "#38bdf8";
@@ -120,6 +124,13 @@ export function MovementsClient({
   }, [rows]);
 
   async function create() {
+    // Validate quantity before the request so a negative/zero/decimal shows a
+    // clear toast instead of the backend's "Invalid request body".
+    const qtyError = validateInteger(quantity, { min: QTY_MIN, label: "Quantity" });
+    if (qtyError) {
+      setError(qtyError);
+      return;
+    }
     setBusy(true);
     setError(null);
     const res = await fetch("/api/movements", {
@@ -156,7 +167,14 @@ export function MovementsClient({
     router.refresh();
   }
 
-  const valid = item && quantity && Number(quantity) > 0;
+  // Inline error once they've typed — keep the button reachable for invalid
+  // numbers so the click surfaces the toast (rather than silently disabling it).
+  const quantityError =
+    quantity.trim() === ""
+      ? null
+      : validateInteger(quantity, { min: QTY_MIN, label: "Quantity" });
+
+  const valid = item && quantity.trim() !== "";
 
   const recordAction = perms.create && (
     <Button
@@ -450,6 +468,9 @@ export function MovementsClient({
             onChange={(e) => setQuantity(e.target.value)}
             required
             fullWidth
+            error={!!quantityError}
+            helperText={quantityError ?? integerHint(QTY_MIN)}
+            slotProps={{ htmlInput: { min: QTY_MIN, step: 1, inputMode: "numeric" } }}
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>

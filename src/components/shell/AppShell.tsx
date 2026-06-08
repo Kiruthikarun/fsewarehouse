@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useLinkStatus } from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useRouteProgress } from "./RouteProgress";
 import type { SvgIconComponent } from "@mui/icons-material";
 import SearchRoundedIcon from "@mui/icons-material/SearchRounded";
 import KeyboardArrowDownRoundedIcon from "@mui/icons-material/KeyboardArrowDownRounded";
@@ -65,6 +67,7 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { start: startProgress } = useRouteProgress();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   // Persisted desktop sidebar collapse — only affects the lg+ persistent rail;
@@ -153,6 +156,9 @@ export function AppShell({
           onClose={() => setPaletteOpen(false)}
           onSelect={(href) => {
             setPaletteOpen(false);
+            // Programmatic nav doesn't go through an <a>, so kick the top
+            // progress bar off manually for instant feedback.
+            if (href !== pathname) startProgress();
             router.push(href);
           }}
         />
@@ -352,14 +358,9 @@ function Sidebar({
                           : "opacity-0"
                       }`}
                     />
-                    <Icon
-                      sx={{ fontSize: 20 }}
-                      className={
-                        active
-                          ? "text-[#ff6a1a]"
-                          : "text-slate-400 transition group-hover:text-slate-200"
-                      }
-                    />
+                    {/* Swaps to a spinner the moment THIS link is navigating, so
+                        feedback lands exactly where the user clicked. */}
+                    <NavLinkIcon Icon={Icon} active={active} />
                     {!collapsed && <span className="truncate">{n.label}</span>}
                   </Link>
                 </li>
@@ -510,6 +511,34 @@ function AppHeader({
 /* ------------------------------------------------------------------ */
 /* Shared pieces                                                      */
 /* ------------------------------------------------------------------ */
+
+/**
+ * Sidebar nav icon that becomes a spinner while ITS link is the one navigating.
+ * `useLinkStatus` only reports pending inside its <Link>, so each rendered
+ * instance tracks just its own row — the clicked item spins, the rest don't.
+ */
+function NavLinkIcon({
+  Icon,
+  active,
+}: {
+  Icon: SvgIconComponent;
+  active: boolean;
+}) {
+  const { pending } = useLinkStatus();
+  if (pending) {
+    return <span className="nav-spinner" aria-hidden />;
+  }
+  return (
+    <Icon
+      sx={{ fontSize: 20 }}
+      className={
+        active
+          ? "text-[#ff6a1a]"
+          : "text-slate-400 transition group-hover:text-slate-200"
+      }
+    />
+  );
+}
 
 /** Geometric stacked-bays mark — warehouse racking lit by a signal beam. */
 function BrandMark() {

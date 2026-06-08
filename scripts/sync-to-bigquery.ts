@@ -126,10 +126,16 @@ async function main() {
       `${movementRows.length} movements from Postgres.`,
   );
 
-  // ── 2. Load full snapshots (WRITE_TRUNCATE) ──────────────────────────────
-  await loadSnapshot(bq, "warehouses", WAREHOUSES_SCHEMA, warehouseRows);
-  await loadSnapshot(bq, "inventory", INVENTORY_SCHEMA, inventoryRows);
-  await loadSnapshot(bq, "movements", MOVEMENTS_SCHEMA, movementRows);
+  // ── 2. Load full snapshots (WRITE_TRUNCATE), in parallel ──────────────────
+  // The three tables are independent — different targets, no ordering
+  // dependency — so their load jobs run concurrently. Wall-clock becomes the
+  // slowest single load instead of the sum of all three (load jobs have a
+  // per-job latency floor, so this is the bulk of the runtime).
+  await Promise.all([
+    loadSnapshot(bq, "warehouses", WAREHOUSES_SCHEMA, warehouseRows),
+    loadSnapshot(bq, "inventory", INVENTORY_SCHEMA, inventoryRows),
+    loadSnapshot(bq, "movements", MOVEMENTS_SCHEMA, movementRows),
+  ]);
 
   console.log("Sync complete. BigQuery now mirrors Postgres (idempotent).");
 }

@@ -43,6 +43,10 @@ import {
   screen,
   darkFieldSx,
 } from "@/components/data/DataKit";
+import { validateInteger, integerHint } from "@/lib/validation";
+
+// Items can hold zero stock (received then fully shipped), so quantity is ≥ 0.
+const QTY_MIN = 0;
 
 const LOW_STOCK = 20;
 
@@ -134,6 +138,13 @@ export function InventoryClient({
   }
 
   async function submit() {
+    // Catch a bad quantity (negative / decimal / blank) up front so the user
+    // sees a clear toast instead of the backend's "Invalid request body".
+    const qtyError = validateInteger(form.quantity, { min: QTY_MIN, label: "Quantity" });
+    if (qtyError) {
+      setError(qtyError);
+      return;
+    }
     setBusy(true);
     setError(null);
     // Items can't be moved between warehouses via update — only sku/name/quantity.
@@ -177,6 +188,13 @@ export function InventoryClient({
     setToDelete(null);
     router.refresh();
   }
+
+  // Live inline error — only once they've typed something, so the field doesn't
+  // start out red. Emptiness is handled by the disabled submit button.
+  const quantityError =
+    form.quantity.trim() === ""
+      ? null
+      : validateInteger(form.quantity, { min: QTY_MIN, label: "Quantity" });
 
   const valid =
     form.sku.trim() &&
@@ -447,6 +465,9 @@ export function InventoryClient({
               onChange={(e) => setForm({ ...form, quantity: e.target.value })}
               required
               fullWidth
+              error={!!quantityError}
+              helperText={quantityError ?? integerHint(QTY_MIN)}
+              slotProps={{ htmlInput: { min: QTY_MIN, step: 1, inputMode: "numeric" } }}
             />
           </Box>
           <TextField

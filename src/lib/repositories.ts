@@ -266,6 +266,175 @@ export const movements = {
   },
 };
 
+// ─── Live analytics tail + snapshot (Postgres) ───────────────────────────────
+
+/** Per-day inbound/outbound, matching BigQuery's VelocityPoint shape. */
+interface TailVelocityPoint {
+  day: string;
+  inbound: number;
+  outbound: number;
+}
+
+/**
+ * Aggregated movements that exist in Postgres but not yet in the BigQuery mirror
+ * — the "tail" the dashboard merges onto the cached BigQuery base so brand-new
+ * movement activity shows on the charts immediately (see src/lib/analytics-live.ts).
+ * `items` carries per-item windowed totals so the live layer can recompute the
+ * stock ledger / status; `velocity` and `throughput` feed the day- and
+ * warehouse-grained charts.
+ */
+export interface MovementTail {
+  velocity: TailVelocityPoint[];
+  throughput: { warehouse_name: string; inbound: number; outbound: number }[];
+  items: { item_id: string; inbound: number; outbound: number }[];
+  movementCount: number;
+}
+
+/** Live inventory + warehouse state — the authoritative snapshot Postgres holds. */
+export interface AnalyticsSnapshot {
+  warehouses: { id: string; name: string; capacity: number }[];
+  items: {
+    id: string;
+    sku: string;
+    name: string;
+    quantity: number;
+    warehouseId: string;
+    warehouseName: string;
+  }[];
+}
+
+export const analytics = {
+  /**
+   * Read + aggregate the unsynced movement tail for one analytics scope.
+   *
+   * `watermark` is BigQuery's MAX(occurred_at) for this scope (see
+   * getSyncWatermark). We take movements strictly newer than it, which are
+   * exactly those not in the mirror — so the caller can sum tail + base with no
+   * double-counting. When the mirror is empty or lags the whole window, we fall
+   * back to the window start (nothing in that range is synced, so it's all tail).
+   * Org-scoped (+ optional warehouse) like every reader in this file.
+   */
+  async movementTail(
+    user: AuthUser,
+    opts: { days: number; warehouseId?: string | null; watermark: Date | null },
+  ): Promise<MovementTail> {
+    const windowStart = new Date(Date.now() - opts.days * 86_400_000);
+    const occurredAt =
+      opts.watermark && opts.watermark >= windowStart
+        ? { gt: opts.watermark }
+        : { gte: windowStart };
+
+    const rows = await prisma.stockMovement.findMany({
+      where: {
+        organisationId: user.organisationId,
+        ...(opts.warehouseId ? { warehouseId: opts.warehouseId } : {}),
+        occurredAt,
+      },
+      select: {
+        type: true,
+        quantity: true,
+        occurredAt: true,
+        itemId: true,
+        warehouse: { select: { name: true } },
+      },
+    });
+
+    const velocity = new Map<string, { inbound: number; outbound: number }>();
+    const throughput = new Map<string, { inbound: number; outbound: number }>();
+    const items = new Map<string, { inbound: number; outbound: number }>();
+
+    for (const m of rows) {
+      const inbound = m.type === MovementType.INBOUND ? m.quantity : 0;
+      const outbound = m.type === MovementType.OUTBOUND ? m.quantity : 0;
+
+      // UTC day key — matches BigQuery's DATE(occurred_at) bucketing so merged
+      // days line up exactly.
+      const day = m.occurredAt.toISOString().slice(0, 10);
+      const v = velocity.get(day) ?? { inbound: 0, outbound: 0 };
+      v.inbound += inbound;
+      v.outbound += outbound;
+      velocity.set(day, v);
+
+      const wh = m.warehouse.name;
+      const t = throughput.get(wh) ?? { inbound: 0, outbound: 0 };
+      t.inbound += inbound;
+      t.outbound += outbound;
+      throughput.set(wh, t);
+
+      const it = items.get(m.itemId) ?? { inbound: 0, outbound: 0 };
+      it.inbound += inbound;
+      it.outbound += outbound;
+      items.set(m.itemId, it);
+    }
+
+    return {
+      velocity: [...velocity.entries()]
+        .map(([day, v]) => ({ day, inbound: v.inbound, outbound: v.outbound }))
+        .sort((a, b) => a.day.localeCompare(b.day)),
+      throughput: [...throughput.entries()].map(([warehouse_name, t]) => ({
+        warehouse_name,
+        inbound: t.inbound,
+        outbound: t.outbound,
+      })),
+      items: [...items.entries()].map(([item_id, it]) => ({
+        item_id,
+        inbound: it.inbound,
+        outbound: it.outbound,
+      })),
+      movementCount: rows.length,
+    };
+  },
+
+  /**
+   * Current inventory + warehouse state from Postgres — the live truth for the
+   * snapshot-derived panels (units-in-stock, capacity, the stock ledger and the
+   * status donut). Reading these straight from Postgres is what makes a direct
+   * quantity edit, a new SKU, or a new warehouse show on the dashboard without
+   * waiting for a BigQuery sync. Small tables, so the per-request cost is trivial.
+   * Org-scoped (+ optional warehouse).
+   */
+  async snapshot(
+    user: AuthUser,
+    opts: { warehouseId?: string | null },
+  ): Promise<AnalyticsSnapshot> {
+    const [warehouses, items] = await Promise.all([
+      prisma.warehouse.findMany({
+        where: {
+          organisationId: user.organisationId,
+          ...(opts.warehouseId ? { id: opts.warehouseId } : {}),
+        },
+        select: { id: true, name: true, capacity: true },
+      }),
+      prisma.inventoryItem.findMany({
+        where: {
+          organisationId: user.organisationId,
+          ...(opts.warehouseId ? { warehouseId: opts.warehouseId } : {}),
+        },
+        select: {
+          id: true,
+          sku: true,
+          name: true,
+          quantity: true,
+          warehouseId: true,
+          warehouse: { select: { name: true } },
+        },
+      }),
+    ]);
+
+    return {
+      warehouses,
+      items: items.map((i) => ({
+        id: i.id,
+        sku: i.sku,
+        name: i.name,
+        quantity: i.quantity,
+        warehouseId: i.warehouseId,
+        warehouseName: i.warehouse.name,
+      })),
+    };
+  },
+};
+
 // ─── Users (org membership & roles) ──────────────────────────────────────────
 
 /**

@@ -87,6 +87,41 @@ const WH = "(@warehouseId IS NULL OR warehouse_id = @warehouseId)";
 const SINCE =
   "occurred_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL @days DAY)";
 
+// ─── Sync watermark (the live-tail merge boundary) ───────────────────────────
+
+/**
+ * The newest movement instant present in the BigQuery mirror, for this scope.
+ *
+ * The sync is a full-snapshot WRITE_TRUNCATE, and `movements_daily` is a
+ * materialised view over the synced `movements` table — so BigQuery knows about
+ * exactly those movements with `occurred_at <= MAX(occurred_at)`. Since
+ * `occurredAt` defaults to `now()` at write time, any Postgres movement *newer*
+ * than this watermark is guaranteed not yet synced. That makes this the precise,
+ * collision-free boundary the live tail reads from (see analytics-live.ts) — the
+ * two sides are disjoint, so the merge can never double-count.
+ *
+ * Returned as an ISO-8601 string (UTC) for a clean `new Date(...)` parse; null
+ * when the scope has no synced movements (an empty mirror — nothing to merge
+ * against, so the whole window is safe to take live).
+ *
+ * Captured INSIDE loadAnalytics (and so cached with the base via getAnalytics),
+ * not read live per request. That coherence is the point: if it were read fresh
+ * while the base stayed cached, a sync could advance this past what the cached
+ * base contains, dropping the in-between movements from both base and tail for
+ * up to one cache window. Cached together, base and boundary always agree.
+ */
+export async function getSyncWatermark(f: AnalyticsFilter): Promise<string | null> {
+  const s = scope(f);
+  const rows = await query<{ watermark: string | null }>(
+    `SELECT FORMAT_TIMESTAMP('%Y-%m-%dT%H:%M:%E6SZ', MAX(occurred_at), 'UTC') AS watermark
+     FROM ${ds()}.${MOVEMENTS_TABLE}
+     WHERE organisation_id = @orgId AND ${WH}`,
+    s.params,
+    s.types,
+  );
+  return rows[0]?.watermark ?? null;
+}
+
 // ─── KPIs ────────────────────────────────────────────────────────────────────
 
 export interface Kpis {
@@ -225,6 +260,8 @@ export async function getCapacityUtilisation(
 // ─── Grid: stock levels with movement velocity + status ──────────────────────
 
 export interface StockRow {
+  /** Stable join key so the live-tail layer can match Postgres inventory rows. */
+  item_id: string;
   sku: string;
   item_name: string;
   warehouse_name: string;
@@ -248,7 +285,8 @@ export async function getStockLevels(f: AnalyticsFilter): Promise<StockRow[]> {
        WHERE organisation_id = @orgId AND ${WH} AND ${SINCE}
        GROUP BY item_id
      )
-     SELECT i.sku,
+     SELECT i.item_id,
+            i.sku,
             i.item_name,
             i.warehouse_name,
             i.quantity,
@@ -343,6 +381,14 @@ export interface AnalyticsData {
   velocity: VelocityPoint[];
   status: StatusBreakdown;
   netUnits: number;
+  /**
+   * The newest movement instant this (cached) base reflects — i.e. BigQuery's
+   * MAX(occurred_at) captured in the SAME cached snapshot as the data above. The
+   * live-tail layer reads Postgres movements strictly after this, so base + tail
+   * always meet exactly at the boundary with no gap or overlap, even when a sync
+   * lands while this snapshot is still cached. Null when the mirror is empty.
+   */
+  syncedThrough: string | null;
   // Admin (broad)
   throughput?: ThroughputRow[];
   capacity?: CapacityRow[];
@@ -365,28 +411,35 @@ async function loadAnalytics(
   if (role === "ADMIN") {
     // Broad, top-level view: cross-warehouse throughput + capacity + portfolio
     // health. Stock rows are pulled only to derive the status breakdown.
-    const [kpis, velocity, throughput, capacity, stock] = await Promise.all([
-      getKpis(f),
-      getMovementVelocity(f),
-      getWarehouseThroughput(f),
-      getCapacityUtilisation(f),
-      getStockLevels(f),
-    ]);
+    const [kpis, velocity, throughput, capacity, stock, syncedThrough] =
+      await Promise.all([
+        getKpis(f),
+        getMovementVelocity(f),
+        getWarehouseThroughput(f),
+        getCapacityUtilisation(f),
+        getStockLevels(f),
+        getSyncWatermark(f),
+      ]);
     return {
       kpis,
       velocity,
       throughput,
       capacity,
+      // Carried (not rendered in the Admin view) so the live-tail layer has the
+      // per-item windowed movements it needs to recompute the Status donut.
+      stock,
       status: statusBreakdown(stock),
       netUnits: netOf(velocity),
+      syncedThrough,
     };
   }
 
   // Manager (and any other analytics-enabled role): detailed, SKU-level view.
-  const [kpis, velocity, stock] = await Promise.all([
+  const [kpis, velocity, stock, syncedThrough] = await Promise.all([
     getKpis(f),
     getMovementVelocity(f),
     getStockLevels(f),
+    getSyncWatermark(f),
   ]);
   return {
     kpis,
@@ -396,6 +449,7 @@ async function loadAnalytics(
     anomalies: summariseAnomalies(stock),
     status: statusBreakdown(stock),
     netUnits: netOf(velocity),
+    syncedThrough,
   };
 }
 

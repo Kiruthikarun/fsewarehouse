@@ -40,6 +40,10 @@ import {
   headCellSx,
   screen,
 } from "@/components/data/DataKit";
+import { validateInteger, integerHint } from "@/lib/validation";
+
+// A warehouse must hold at least one unit, so capacity is ≥ 1.
+const CAPACITY_MIN = 1;
 
 interface Row {
   id: string;
@@ -114,6 +118,13 @@ export function WarehousesClient({
   }
 
   async function submit() {
+    // Validate capacity before the request so a negative/decimal shows a clear
+    // toast rather than the backend's "Invalid request body".
+    const capError = validateInteger(form.capacity, { min: CAPACITY_MIN, label: "Capacity" });
+    if (capError) {
+      setError(capError);
+      return;
+    }
     setBusy(true);
     setError(null);
     const res = await fetch(
@@ -153,6 +164,11 @@ export function WarehousesClient({
     setToDelete(null);
     router.refresh();
   }
+
+  const capacityError =
+    form.capacity.trim() === ""
+      ? null
+      : validateInteger(form.capacity, { min: CAPACITY_MIN, label: "Capacity" });
 
   const valid = form.name.trim() && form.location.trim() && form.capacity;
 
@@ -381,6 +397,9 @@ export function WarehousesClient({
             onChange={(e) => setForm({ ...form, capacity: e.target.value })}
             required
             fullWidth
+            error={!!capacityError}
+            helperText={capacityError ?? integerHint(CAPACITY_MIN)}
+            slotProps={{ htmlInput: { min: CAPACITY_MIN, step: 1, inputMode: "numeric" } }}
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5 }}>

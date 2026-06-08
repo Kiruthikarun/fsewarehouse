@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/current-user";
 import { can } from "@/lib/rbac";
 import { AppShell } from "@/components/shell/AppShell";
+import { RouteProgress } from "@/components/shell/RouteProgress";
 
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: "Admin",
@@ -40,18 +41,20 @@ export default async function AppLayout({
     .map(({ href, label }) => ({ href, label }));
 
   return (
-    <AppShell
-      nav={nav}
-      today={today}
-      user={{
-        name: user.name,
-        email: user.email,
-        organisationName: user.organisationName,
-        role: user.role,
-        roleLabel: ROLE_LABEL[user.role] ?? user.role,
-      }}
-    >
-      {children}
-    </AppShell>
+    <RouteProgress>
+      <AppShell
+        nav={nav}
+        today={today}
+        user={{
+          name: user.name,
+          email: user.email,
+          organisationName: user.organisationName,
+          role: user.role,
+          roleLabel: ROLE_LABEL[user.role] ?? user.role,
+        }}
+      >
+        {children}
+      </AppShell>
+    </RouteProgress>
   );
 }

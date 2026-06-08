@@ -5,11 +5,11 @@ import Box from "@mui/material/Box";
 import { getCurrentUser } from "@/lib/current-user";
 import { can } from "@/lib/rbac";
 import {
-  getAnalytics,
   getWarehouseOptions,
   isConfigured,
   type AnalyticsFilter,
 } from "@/lib/bigquery";
+import { getLiveAnalytics } from "@/lib/analytics-live";
 import { AnalyticsView } from "@/components/dashboard/DashboardView";
 import { rangeKeyToDays } from "@/lib/analytics-ranges";
 
@@ -66,8 +66,11 @@ export default async function DashboardPage({
   try {
     // Role decides which (cached) query set runs: Admin = broad top-level
     // charts; Manager = detailed SKU-level charts + the full stock ledger.
+    // getLiveAnalytics layers the not-yet-synced Postgres tail on top of the
+    // cached BigQuery base, so new movements and inventory/warehouse edits show
+    // immediately rather than only after the next sync.
     const [data, warehouses] = await Promise.all([
-      getAnalytics(user.role, filter),
+      getLiveAnalytics(user, user.role, filter),
       getWarehouseOptions(user.organisationId),
     ]);
 
