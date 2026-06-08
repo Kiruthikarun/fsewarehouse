@@ -3,6 +3,7 @@ import { z } from "zod";
 import { MovementType } from "@prisma/client";
 import { route } from "@/lib/api";
 import { requirePermission } from "@/lib/auth";
+import { revalidateLive } from "@/lib/analytics-cache";
 import { movements } from "@/lib/repositories";
 
 const CreateSchema = z.object({
@@ -23,6 +24,8 @@ export function POST(req: NextRequest) {
   return route(async () => {
     const user = await requirePermission("movement:create");
     const body = CreateSchema.parse(await req.json());
-    return movements.create(user, body);
+    const created = await movements.create(user, body);
+    revalidateLive(user.organisationId); // a movement changes stock → bust live caches
+    return created;
   });
 }

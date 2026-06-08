@@ -3,6 +3,7 @@
 import { revalidateTag } from "next/cache";
 import { getCurrentUser } from "@/lib/current-user";
 import { analyticsTag } from "@/lib/bigquery";
+import { liveTag } from "@/lib/analytics-cache";
 
 /**
  * Force-refresh the analytics data for the caller's org.
@@ -15,5 +16,8 @@ import { analyticsTag } from "@/lib/bigquery";
 export async function refreshAnalytics(): Promise<void> {
   const user = await getCurrentUser();
   if (!user) return;
+  // Bust both layers: the BigQuery base (so a fresh sync shows) and the live
+  // overlay caches (snapshot + item options).
   revalidateTag(analyticsTag(user.organisationId));
+  revalidateTag(liveTag(user.organisationId));
 }

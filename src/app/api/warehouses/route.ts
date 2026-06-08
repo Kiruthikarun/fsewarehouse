@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { route } from "@/lib/api";
 import { requirePermission } from "@/lib/auth";
+import { revalidateLive } from "@/lib/analytics-cache";
 import { warehouses } from "@/lib/repositories";
 
 const CreateSchema = z.object({
@@ -21,6 +22,8 @@ export function POST(req: NextRequest) {
   return route(async () => {
     const user = await requirePermission("warehouse:create");
     const body = CreateSchema.parse(await req.json());
-    return warehouses.create(user, body);
+    const created = await warehouses.create(user, body);
+    revalidateLive(user.organisationId);
+    return created;
   });
 }

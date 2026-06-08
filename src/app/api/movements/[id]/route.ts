@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { route } from "@/lib/api";
 import { requirePermission } from "@/lib/auth";
+import { revalidateLive } from "@/lib/analytics-cache";
 import { movements } from "@/lib/repositories";
 
 type Params = { params: Promise<{ id: string }> };
@@ -13,6 +14,7 @@ export function DELETE(_req: NextRequest, { params }: Params) {
     const user = await requirePermission("movement:delete");
     const { id } = await params;
     await movements.remove(user, id);
+    revalidateLive(user.organisationId);
     return { ok: true };
   });
 }

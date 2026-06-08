@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { route } from "@/lib/api";
 import { requirePermission } from "@/lib/auth";
+import { revalidateLive } from "@/lib/analytics-cache";
 import { inventory } from "@/lib/repositories";
 
 const UpdateSchema = z.object({
@@ -17,7 +18,9 @@ export function PATCH(req: NextRequest, { params }: Params) {
     const user = await requirePermission("inventory:update");
     const { id } = await params;
     const body = UpdateSchema.parse(await req.json());
-    return inventory.update(user, id, body);
+    const updated = await inventory.update(user, id, body);
+    revalidateLive(user.organisationId);
+    return updated;
   });
 }
 
@@ -26,6 +29,7 @@ export function DELETE(_req: NextRequest, { params }: Params) {
     const user = await requirePermission("inventory:delete");
     const { id } = await params;
     await inventory.remove(user, id);
+    revalidateLive(user.organisationId);
     return { ok: true };
   });
 }

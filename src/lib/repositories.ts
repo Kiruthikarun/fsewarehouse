@@ -318,11 +318,21 @@ export const analytics = {
     user: AuthUser,
     opts: { days: number; warehouseId?: string | null; watermark: Date | null },
   ): Promise<MovementTail> {
+    // The live tail bridges BigQuery's watermark → now. Healthy path: take exactly
+    // what's newer than the watermark — tiny, because the scheduled sync keeps the
+    // watermark fresh. If the watermark is missing or older than the window (i.e.
+    // BigQuery is empty/stale for this scope), DON'T replay the entire window live
+    // on every request — that's the difference between a few-row read and a 500k-row
+    // scan. Bound the live scan to a recent slice and rely on `bq:sync` to backfill
+    // the rest; if a sync outage runs longer than this cap, older-than-cap movements
+    // are briefly under-counted until the next sync, which is the right trade for
+    // keeping every page load responsive.
+    const TAIL_MAX_MS = 48 * 60 * 60 * 1000; // never live-scan more than ~2 days
     const windowStart = new Date(Date.now() - opts.days * 86_400_000);
-    const occurredAt =
-      opts.watermark && opts.watermark >= windowStart
-        ? { gt: opts.watermark }
-        : { gte: windowStart };
+    const fresh = opts.watermark != null && opts.watermark >= windowStart;
+    const occurredAt = fresh
+      ? { gt: opts.watermark! }
+      : { gte: new Date(Math.max(windowStart.getTime(), Date.now() - TAIL_MAX_MS)) };
 
     const rows = await prisma.stockMovement.findMany({
       where: {

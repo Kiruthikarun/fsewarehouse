@@ -129,4 +129,7 @@ model StockMovement {
   @@index([itemId])
   @@index([warehouseId])
   @@index([occurredAt])
+  // Serves the org-scoped, occurredAt-ordered reads (recent-100 movements list +
+  // the live movement tail) with an index seek instead of a filter-then-sort.
+  @@index([organisationId, occurredAt])
 }

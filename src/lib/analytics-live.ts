@@ -1,4 +1,6 @@
+import { unstable_cache } from "next/cache";
 import type { Role } from "@prisma/client";
+import { liveTag } from "@/lib/analytics-cache";
 import {
   getAnalytics,
   statusBreakdown,
@@ -44,6 +46,23 @@ const EMPTY_TAIL: MovementTail = {
   movementCount: 0,
 };
 
+// The live Postgres snapshot (all inventory + warehouses) is read on every
+// dashboard load. At demo scale that was free; at 10k+ items it dominates load
+// time, so cache it briefly. Keyed by (org, warehouse); tagged `live:` so any
+// write (movement / inventory / warehouse) busts it immediately via
+// revalidateLive — keeping "edits show instantly" while making rapid reloads
+// free. The heavy movement-history scan stays in the separately-cached BigQuery
+// base; this only caches the small current-state read.
+const SNAPSHOT_REVALIDATE_SECONDS = 30;
+
+function cachedSnapshot(user: AuthUser, warehouseId: string | null) {
+  return unstable_cache(
+    () => analyticsRepo.snapshot(user, { warehouseId }),
+    ["analytics-snapshot", user.organisationId, warehouseId ?? "all"],
+    { revalidate: SNAPSHOT_REVALIDATE_SECONDS, tags: [liveTag(user.organisationId)] },
+  )();
+}
+
 export async function getLiveAnalytics(
   user: AuthUser,
   role: Role,
@@ -52,7 +71,7 @@ export async function getLiveAnalytics(
   // Base (cached BigQuery) and the live Postgres snapshot are independent reads.
   const [base, snapshot] = await Promise.all([
     getAnalytics(role, filter),
-    analyticsRepo.snapshot(user, { warehouseId: filter.warehouseId }),
+    cachedSnapshot(user, filter.warehouseId ?? null),
   ]);
 
   // The merge boundary comes from `base` itself (captured in the same cached
